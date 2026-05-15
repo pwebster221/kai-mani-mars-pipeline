@@ -1,0 +1,6 @@
+{
+  "name": "Paths of Reverence API Explorer",
+  "description": "An interactive API dashboard for querying and interacting with the Paths of Reverence services.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
