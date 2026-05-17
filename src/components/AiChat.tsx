@@ -1,20 +1,18 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Send, Bot, User, Loader2 } from "lucide-react";
 import { ChartResult, ScoringResult } from "../types";
 
 export default function AiChat({
   chartData,
-  scoringData
+  scoringData,
+  messages,
+  setMessages
 }: {
   chartData: ChartResult | null;
   scoringData: ScoringResult | null;
+  messages: {role: 'ai' | 'user', text: string}[];
+  setMessages: React.Dispatch<React.SetStateAction<{role: 'ai' | 'user', text: string}[]>>;
 }) {
-  const [messages, setMessages] = useState<{role: 'ai' | 'user', text: string}[]>([
-    {
-      role: 'ai',
-      text: "I am Mani. My connection to the Paths of Reverence MCP server is active.\n\nI can read the output from the celestial engines and cross-reference them with the esoteric repos. How may I be of service?"
-    }
-  ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -39,12 +37,14 @@ export default function AiChat({
         body: JSON.stringify({
           prompt: userText,
           chartContext: chartData ? {
-            name: chartData.meta?.name,
-            planets: chartData.planets
+            meta: chartData.meta,
+            planets: chartData.planets,
+            houses: chartData.houses
           } : null,
           scoringContext: scoringData ? {
             matches: scoringData.matches.slice(0, 3).map(m => m.name)
-          } : null
+          } : null,
+          history: messages
         })
       });
 

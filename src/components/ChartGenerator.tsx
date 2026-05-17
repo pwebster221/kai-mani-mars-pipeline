@@ -11,8 +11,25 @@ export default function ChartGenerator({ onChartGenerated }: { onChartGenerated:
   const [name, setName] = useState("paul webster");
   const [date, setDate] = useState("1989-01-06");
   const [time, setTime] = useState("15:10");
-  const [lat, setLat] = useState("35.9956");
-  const [lon, setLon] = useState("-78.9002");
+  const [lat, setLat] = useState("35.9969");
+  const [lon, setLon] = useState("-78.899");
+  const [tzOffset, setTzOffset] = useState("-5");
+  const [selectedHouses, setSelectedHouses] = useState<string[]>(["whole_sign"]);
+
+  const houseOptions = [
+    { id: "placidus", label: "Placidus" },
+    { id: "whole_sign", label: "Whole Sign" },
+    { id: "koch", label: "Koch" },
+    { id: "equal", label: "Equal" }
+  ];
+
+  const toggleHouse = (id: string) => {
+    setSelectedHouses(prev => 
+      prev.includes(id) 
+        ? prev.filter(h => h !== id)
+        : [...prev, id]
+    );
+  };
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -23,11 +40,15 @@ export default function ChartGenerator({ onChartGenerated }: { onChartGenerated:
         date,
         time,
         latitude: parseFloat(lat),
-        longitude: parseFloat(lon)
+        longitude: parseFloat(lon),
+        city: "string",
+        tz_offset: parseFloat(tzOffset)
       };
 
       const payload = {
         birth_data: birthData,
+        house_system: selectedHouses.length > 0 ? selectedHouses[0] : "whole_sign",
+        house_systems: selectedHouses,
         anonymous: true,
         persist: false
       };
@@ -122,6 +143,34 @@ export default function ChartGenerator({ onChartGenerated }: { onChartGenerated:
             onChange={(e) => setLon(e.target.value)}
             className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-2 text-stone-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all font-mono text-sm"
           />
+        </div>
+        
+        <div>
+          <label className="block text-xs font-medium text-stone-400 mb-1">Timezone Offset</label>
+          <input 
+            type="number" 
+            step="any"
+            value={tzOffset}
+            onChange={(e) => setTzOffset(e.target.value)}
+            className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-2 text-stone-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all font-mono text-sm"
+          />
+        </div>
+      </div>
+      
+      <div className="col-span-2">
+        <label className="block text-xs font-medium text-stone-400 mb-2">House Systems</label>
+        <div className="grid grid-cols-2 gap-2">
+          {houseOptions.map(option => (
+            <label key={option.id} className="flex items-center space-x-2 cursor-pointer text-sm text-stone-300">
+              <input
+                type="checkbox"
+                checked={selectedHouses.includes(option.id)}
+                onChange={() => toggleHouse(option.id)}
+                className="w-4 h-4 rounded border-stone-700 bg-stone-900 text-amber-500 focus:ring-amber-500 focus:ring-offset-stone-800"
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
         </div>
       </div>
       

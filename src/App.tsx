@@ -1,14 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Moon, Sun, Stars, Flame, Hexagon, MessageSquare, Menu, BookOpen, Layers } from "lucide-react";
 import ChartGenerator from "./components/ChartGenerator";
 import MarsScoring from "./components/MarsScoring";
 import AiChat from "./components/AiChat";
 import { ChartResult, ScoringResult } from "./types";
 
+const INITIAL_MESSAGES = [
+  {
+    role: 'ai' as const,
+    text: "I am Mani. My connection to the Paths of Reverence MCP server is active.\n\nI can read the output from the celestial engines and cross-reference them with the esoteric repos. How may I be of service?"
+  }
+];
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "ai">("dashboard");
   const [chartData, setChartData] = useState<ChartResult | null>(null);
   const [scoringData, setScoringData] = useState<ScoringResult | null>(null);
+  
+  const [chatMessages, setChatMessages] = useState<{role: 'ai' | 'user', text: string}[]>(() => {
+    const saved = localStorage.getItem('mani_chat_messages');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return INITIAL_MESSAGES;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('mani_chat_messages', JSON.stringify(chatMessages));
+  }, [chatMessages]);
   
   return (
     <div className="min-h-screen bg-stone-900 text-stone-100 font-sans selection:bg-amber-500/30">
@@ -88,7 +107,7 @@ export default function App() {
                         Astrological Signature
                       </h3>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {Object.entries(chartData.planets).slice(0, 10).map(([planet, details]) => (
+                        {Object.entries(chartData.planets).slice(0, 10).map(([planet, details]: [string, any]) => (
                           <div key={planet} className="bg-stone-800/50 p-3 rounded-xl border border-stone-700/50 flex flex-col">
                             <span className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">{planet}</span>
                             <span className="text-sm text-stone-200 font-medium">
@@ -186,7 +205,7 @@ export default function App() {
           </div>
         ) : (
           <div className="h-[calc(100vh-8rem)] bg-stone-800/40 border border-stone-800 rounded-2xl overflow-hidden shadow-2xl shadow-black/50">
-            <AiChat chartData={chartData} scoringData={scoringData} />
+            <AiChat chartData={chartData} scoringData={scoringData} messages={chatMessages} setMessages={setChatMessages} />
           </div>
         )}
       </main>
