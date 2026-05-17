@@ -587,13 +587,15 @@ Session is now persisted to the database. The ability is available to surface vi
       let responseText = "";
 
       while (true) {
-        const response = await anthropic.messages.create({
-          model: "claude-3-5-sonnet-20240620",
-          max_tokens: 8192,
+        const stream = anthropic.messages.stream({
+          model: "claude-opus-4-7", // LOCKED: User specifically requested Opus 4-7. Do not change.
+          max_tokens: 128000, // Opus 4-7 max_tokens is 128k, also LOCKED
           system: systemWithContext,
           messages,
           tools: anthropicTools,
         });
+        
+        const response = await stream.finalMessage();
 
         messages.push({
           role: "assistant",
