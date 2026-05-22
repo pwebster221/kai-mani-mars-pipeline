@@ -6,8 +6,20 @@ type AssetFetcher = {
 
 export interface Env {
   ANTHROPIC_API_KEY: string;
-  CORS_ORIGIN?: string;
+  CORS_ALLOWED_ORIGINS?: string;
+  PROXY_ALLOWED_HOSTS?: string;
+  PROXY_SHARED_SECRET?: string;
   ASSETS: AssetFetcher;
+}
+
+function parseAllowlist(value: string | undefined): Set<string> {
+  if (!value) return new Set();
+  return new Set(
+    value
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
 }
 
 let kaiSessionId: string | null = null;
@@ -19,11 +31,21 @@ Use Mani as hidden scaffolding, not user-facing content. Never expose protocol i
 
 Be precise, clear, and practical.`;
 
-function withCors(env: Env, response: Response): Response {
+function withCors(env: Env, request: Request, response: Response): Response {
+  const allowed = parseAllowlist(env.CORS_ALLOWED_ORIGINS);
+  const origin = request.headers.get("Origin");
   const headers = new Headers(response.headers);
-  headers.set("Access-Control-Allow-Origin", env.CORS_ORIGIN || "*");
+
+  if (origin && allowed.has(origin)) {
+    headers.set("Access-Control-Allow-Origin", origin);
+    headers.set("Vary", "Origin");
+  }
+
   headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  headers.set(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Proxy-Secret",
+  );
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -31,9 +53,10 @@ function withCors(env: Env, response: Response): Response {
   });
 }
 
-function jsonResponse(env: Env, data: unknown, status = 200): Response {
+function jsonResponse(env: Env, request: Request, data: unknown, status = 200): Response {
   return withCors(
     env,
+    request,
     new Response(JSON.stringify(data), {
       status,
       headers: { "Content-Type": "application/json" },
@@ -143,7 +166,24 @@ async function mcpCallTool(name: string, args: unknown) {
   return res.result;
 }
 
+const BLOCKED_PROXY_HEADERS = new Set([
+  "host",
+  "cookie",
+  "authorization",
+  "x-proxy-secret",
+  "x-forwarded-for",
+  "cf-connecting-ip",
+]);
+
 async function handleProxy(request: Request, env: Env): Promise<Response> {
+  if (!env.PROXY_SHARED_SECRET) {
+    return jsonResponse(env, request, { error: "Proxy disabled" }, 503);
+  }
+
+  if (request.headers.get("X-Proxy-Secret") !== env.PROXY_SHARED_SECRET) {
+    return jsonResponse(env, request, { error: "Unauthorized" }, 401);
+  }
+
   try {
     const { url, method = "GET", headers = {}, body } = (await request.json()) as {
       url?: string;
@@ -152,14 +192,30 @@ async function handleProxy(request: Request, env: Env): Promise<Response> {
       body?: unknown;
     };
 
-    if (!url) return jsonResponse(env, { error: "Missing required field: url" }, 400);
+    if (!url) return jsonResponse(env, request, { error: "Missing required field: url" }, 400);
     const parsedUrl = new URL(url);
     if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-      return jsonResponse(env, { error: "Only http/https URLs are allowed" }, 400);
+      return jsonResponse(env, request, { error: "Only http/https URLs are allowed" }, 400);
     }
 
-    const outgoingHeaders = new Headers(headers);
     const upperMethod = method.toUpperCase();
+    const allowedMethods = new Set(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"]);
+    if (!allowedMethods.has(upperMethod)) {
+      return jsonResponse(env, request, { error: "Unsupported method" }, 400);
+    }
+
+    const allowedHosts = parseAllowlist(env.PROXY_ALLOWED_HOSTS);
+    if (!allowedHosts.has(parsedUrl.hostname)) {
+      return jsonResponse(env, request, { error: "Target host is not allowed" }, 403);
+    }
+
+    const outgoingHeaders = new Headers();
+    for (const [key, value] of Object.entries(headers)) {
+      if (!BLOCKED_PROXY_HEADERS.has(key.toLowerCase())) {
+        outgoingHeaders.set(key, value);
+      }
+    }
+
     let outgoingBody: BodyInit | undefined;
 
     if (body !== undefined && upperMethod !== "GET" && upperMethod !== "HEAD") {
@@ -186,15 +242,20 @@ async function handleProxy(request: Request, env: Env): Promise<Response> {
       data = JSON.parse(text);
     } catch {}
 
-    return jsonResponse(env, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: responseHeaders,
-      data,
-    }, response.status);
+    return jsonResponse(
+      env,
+      request,
+      {
+        status: response.status,
+        statusText: response.statusText,
+        headers: responseHeaders,
+        data,
+      },
+      response.status,
+    );
   } catch (error) {
     console.error("Proxy error", error);
-    return jsonResponse(env, {
+    return jsonResponse(env, request, {
       error: "Failed to proxy request",
     }, 500);
   }
@@ -210,10 +271,10 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
     };
 
     if (!prompt || typeof prompt !== "string") {
-      return jsonResponse(env, { error: "Missing required field: prompt" }, 400);
+      return jsonResponse(env, request, { error: "Missing required field: prompt" }, 400);
     }
     if (!env.ANTHROPIC_API_KEY) {
-      return jsonResponse(env, { error: "Server misconfiguration: ANTHROPIC_API_KEY is not set" }, 500);
+      return jsonResponse(env, request, { error: "Server misconfiguration: ANTHROPIC_API_KEY is not set" }, 500);
     }
 
     const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
@@ -301,10 +362,10 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
       messages.push({ role: "user", content: toolResults });
     }
 
-    return jsonResponse(env, { response: responseText.trim() });
+    return jsonResponse(env, request, { response: responseText.trim() });
   } catch (error) {
     console.error("Chat error", error);
-    return jsonResponse(env, {
+    return jsonResponse(env, request, {
       error: "Failed to generate response",
     }, 500);
   }
@@ -325,7 +386,7 @@ async function handleAssets(request: Request, env: Env): Promise<Response> {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === "OPTIONS") {
-      return withCors(env, new Response(null, { status: 204 }));
+      return withCors(env, request, new Response(null, { status: 204 }));
     }
 
     const url = new URL(request.url);
@@ -336,6 +397,6 @@ export default {
       return handleChat(request, env);
     }
 
-    return withCors(env, await handleAssets(request, env));
+    return withCors(env, request, await handleAssets(request, env));
   },
 };
