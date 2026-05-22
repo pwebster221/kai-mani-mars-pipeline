@@ -1,7 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
-import * as es from "eventsource";
-const EventSource = es.default || es;
+import { EventSource } from "eventsource";
 (globalThis as any).EventSource = EventSource;
 
 async function test() {
