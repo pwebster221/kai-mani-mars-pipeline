@@ -179,6 +179,10 @@ async function handleProxy(request: Request, env: Env): Promise<Response> {
   if (!env.PROXY_SHARED_SECRET) {
     return jsonResponse(env, request, { error: "Proxy disabled" }, 503);
   }
+  const allowedHosts = parseAllowlist(env.PROXY_ALLOWED_HOSTS);
+  if (allowedHosts.size === 0) {
+    return jsonResponse(env, request, { error: "Proxy disabled" }, 503);
+  }
 
   if (request.headers.get("X-Proxy-Secret") !== env.PROXY_SHARED_SECRET) {
     return jsonResponse(env, request, { error: "Unauthorized" }, 401);
@@ -204,7 +208,6 @@ async function handleProxy(request: Request, env: Env): Promise<Response> {
       return jsonResponse(env, request, { error: "Unsupported method" }, 400);
     }
 
-    const allowedHosts = parseAllowlist(env.PROXY_ALLOWED_HOSTS);
     if (!allowedHosts.has(parsedUrl.hostname)) {
       return jsonResponse(env, request, { error: "Target host is not allowed" }, 403);
     }
@@ -254,7 +257,7 @@ async function handleProxy(request: Request, env: Env): Promise<Response> {
       response.status,
     );
   } catch (error) {
-    console.error("Proxy error", error);
+    console.error("Proxy error");
     return jsonResponse(env, request, {
       error: "Failed to proxy request",
     }, 500);
@@ -364,7 +367,7 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
 
     return jsonResponse(env, request, { response: responseText.trim() });
   } catch (error) {
-    console.error("Chat error", error);
+    console.error("Chat error");
     return jsonResponse(env, request, {
       error: "Failed to generate response",
     }, 500);
