@@ -270,7 +270,7 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
 
       if (response.stop_reason !== "tool_use") break;
 
-      const toolUses = response.content.filter((c: any) => c.type === "tool_use");
+      const toolUses = response.content.filter((c: any) => c.type === "tool_use") as any[];
       const toolResults: any[] = [];
 
       for (const toolReq of toolUses) {
