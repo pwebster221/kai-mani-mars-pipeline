@@ -184,9 +184,7 @@ async function handleProxy(request: Request, env: Env): Promise<Response> {
     let data: unknown = text;
     try {
       data = JSON.parse(text);
-    } catch (e) {
-      console.error("Failed to load kai tools", e);
-    }
+    } catch {}
 
     return jsonResponse(env, {
       status: response.status,
