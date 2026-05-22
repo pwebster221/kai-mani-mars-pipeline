@@ -14,7 +14,7 @@ This repo now supports:
 **Prerequisites:** Node.js
 
 1. Install dependencies: `npm install`
-2. Set `ANTHROPIC_API_KEY` in your environment
+2. Set `ANTHROPIC_API_KEY` in your environment (example: `export ANTHROPIC_API_KEY=your_key`)
 3. Run: `npm run dev`
 
 ## Build static client assets

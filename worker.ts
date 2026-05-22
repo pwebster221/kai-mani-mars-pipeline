@@ -184,7 +184,9 @@ async function handleProxy(request: Request, env: Env): Promise<Response> {
     let data: unknown = text;
     try {
       data = JSON.parse(text);
-    } catch {}
+    } catch (e) {
+      console.error("Failed to load kai tools", e);
+    }
 
     return jsonResponse(env, {
       status: response.status,
@@ -193,9 +195,9 @@ async function handleProxy(request: Request, env: Env): Promise<Response> {
       data,
     }, response.status);
   } catch (error) {
+    console.error("Proxy error", error);
     return jsonResponse(env, {
       error: "Failed to proxy request",
-      details: error instanceof Error ? error.message : String(error),
     }, 500);
   }
 }
@@ -303,9 +305,9 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
 
     return jsonResponse(env, { response: responseText.trim() });
   } catch (error) {
+    console.error("Chat error", error);
     return jsonResponse(env, {
       error: "Failed to generate response",
-      details: error instanceof Error ? error.message : String(error),
     }, 500);
   }
 }
