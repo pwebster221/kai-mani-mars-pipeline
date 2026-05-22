@@ -257,7 +257,7 @@ async function handleProxy(request: Request, env: Env): Promise<Response> {
       response.status,
     );
   } catch (error) {
-    console.error("Proxy error");
+    console.error("Proxy error", error instanceof Error ? error.name : typeof error);
     return jsonResponse(env, request, {
       error: "Failed to proxy request",
     }, 500);
@@ -367,7 +367,7 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
 
     return jsonResponse(env, request, { response: responseText.trim() });
   } catch (error) {
-    console.error("Chat error");
+    console.error("Chat error", error instanceof Error ? error.name : typeof error);
     return jsonResponse(env, request, {
       error: "Failed to generate response",
     }, 500);
